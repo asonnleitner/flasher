@@ -59,10 +59,15 @@ function flashBackground() {
 
       if (currentTime >= flashPeriodEnd) {
         clearInterval(interval);
-        alarm.pause();
-        alarm.currentTime = 0;
-        background.style.backgroundColor = GREEN_COLOR;
         isFlashing = false;
+
+        // Ensure the alarm is stopped at the exact end time of the flashing period
+        if (soundEnabled) {
+          alarm.pause();
+          alarm.currentTime = 0;
+        }
+
+        background.style.backgroundColor = GREEN_COLOR;
         return;
       }
 
