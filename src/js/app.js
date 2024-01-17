@@ -1,65 +1,99 @@
-const FLASHING_INTERVAL = 900000; // 15 minutes
-const FLASH_DURATION = 15000; // 15 seconds
 const FLASHING_FREQUENCY = 500; // 500 ms interval between flashes
+const FLASHING_MINUTE_INTERVAL = 15; // 15 minutes
+const FLASHING_DURATION = 15; // 15 seconds
+const FLASHING_DURATION_MS = FLASHING_DURATION * 1000;
 
-
-const START_TIME = 6; // 6:00
-const END_TIME = 20; // 8:00
+const START_TIME = 6; // 6:00 AM
+const END_TIME = 20; // 8:00 PM
 
 const GREEN_COLOR = '#4CAF50';
 const RED_COLOR = '#F44336';
 
-function shouldFlash(currentTime) {
-  const hours = currentTime.getHours();
-  const minutes = currentTime.getMinutes();
-  const totalMinutes = hours * 60 + minutes;
-  // Check if the current time is within the flashing window and on a 15-minute mark
-  return hours >= START_TIME && hours < END_TIME && totalMinutes % 15 === 0;
+let soundEnabled = false;
+let isFlashing = false;
+let background, alarm;
+
+function isWithinOperatingHours() {
+  const hours = new Date().getHours();
+  return hours >= START_TIME && hours < END_TIME;
 }
 
-function formatTime(time) {
-  // formate time to hh:mm
-  const hours = time.getHours();
-  const minutes = time.getMinutes();
-  return `${hours}:${minutes}`;
+function getNextFlashTime() {
+  const now = new Date();
+  if (now.getMinutes() % FLASHING_MINUTE_INTERVAL === 0 && now.getSeconds() < FLASHING_DURATION) {
+    return now; // Flash now if within the current flashing period
+  }
+  const next = new Date(now);
+  next.setMinutes(FLASHING_MINUTE_INTERVAL * Math.ceil(now.getMinutes() / FLASHING_MINUTE_INTERVAL), 0, 0);
+  return next;
 }
 
+function getFlashPeriodStart() {
+  const now = new Date();
+  now.setSeconds(0, 0); // Reset seconds and milliseconds
+  const minutes = now.getMinutes();
+  const roundedMinutes = minutes - (minutes % FLASHING_MINUTE_INTERVAL);
+  now.setMinutes(roundedMinutes);
+  return now;
+}
 
-document.addEventListener('DOMContentLoaded', function() {
-  const background = document.getElementById('background');
-  const alarm = document.getElementById('alarmAudio');
-  const startButton = document.getElementById('startButton');
+function flashBackground() {
+  if (isFlashing || !isWithinOperatingHours()) return;
 
-  startButton.addEventListener('click', function() {
-    startButton.style.display = 'none'; // Hide the button after clicking
-  });
+  const flashPeriodStart = getFlashPeriodStart();
+  const flashPeriodEnd = new Date(flashPeriodStart.getTime() + FLASHING_DURATION_MS);
+  const now = new Date();
 
-  setInterval(function() {
-    const currentTime = new Date();
-    console.debug(`Checking if should flash at ${currentTime.toString()}...`);
-    if (shouldFlash(currentTime)) {
-      console.debug(`Starting flashing at ${currentTime.toString()}...`);
-      flashBackground();
-    }
-  }, 1000); // Check every second
+  if (now >= flashPeriodStart && now < flashPeriodEnd) {
 
-  function flashBackground() {
-    let count = 0;
+
+    isFlashing = true;
     let isRed = false;
 
-    console.debug(`Starting audio playback at ${new Date().toString()}...`)
-    alarm.play(); // Start playing the alarm when flashing starts
+    if (soundEnabled && !document.hidden) {
+      alarm.play();
+    }
 
-    const flashInterval = setInterval(function() {
-      background.style.backgroundColor = isRed ? GREEN_COLOR : RED_COLOR;
-      isRed = !isRed;
+    const interval = setInterval(() => {
+      const currentTime = new Date();
 
-      if (++count >= FLASH_DURATION / FLASHING_FREQUENCY) {
-        clearInterval(flashInterval);
-        alarm.pause(); // Stop the alarm when flashing ends
-        alarm.currentTime = 0; // Reset alarm to start
-        background.style.backgroundColor = GREEN_COLOR; // Revert to green
+      if (currentTime >= flashPeriodEnd) {
+        clearInterval(interval);
+        alarm.pause();
+        alarm.currentTime = 0;
+        background.style.backgroundColor = GREEN_COLOR;
+        isFlashing = false;
+        return;
       }
+
+      isRed = !isRed;
+      background.style.backgroundColor = isRed ? GREEN_COLOR : RED_COLOR;
     }, FLASHING_FREQUENCY);
   }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  background = document.getElementById('background');
+  alarm = document.getElementById('alarmAudio');
+  const startButton = document.getElementById('startButton');
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      alarm.pause();
+      alarm.currentTime = 0;
+    }
+  });
+
+  startButton.addEventListener('click', () => {
+    soundEnabled = true;
+    startButton.style.display = 'none';
+  });
+
+  setInterval(() => {
+    const now = new Date();
+    const nextFlashTime = getNextFlashTime();
+    if (now >= nextFlashTime && now < new Date(nextFlashTime.getTime() + FLASHING_DURATION_MS)) {
+      flashBackground();
+    }
+  }, 250);
 });
