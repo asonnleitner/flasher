@@ -72,7 +72,7 @@ function flashBackground() {
       }
 
       isRed = !isRed;
-      background.style.backgroundColor = isRed ? GREEN_COLOR : RED_COLOR;
+      background.style.backgroundColor = isRed ? RED_COLOR : GREEN_COLOR;
     }, FLASHING_FREQUENCY);
   }
 }
